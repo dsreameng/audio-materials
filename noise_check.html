@@ -44,9 +44,14 @@
     document.getElementById('startBtn').disabled = true;
     document.getElementById('permStatus').innerText = 'マイクの許可を求めています…';
     samples = [];
-    navigator.mediaDevices.getUserMedia({ audio: true })
+    // AGC・ノイズ抑制・エコーキャンセルは全てオフにする。これらは既定でオンになっており、
+    // ストリーム開始後の1〜2秒間、内部で自動的にゲインを調整し続けるため、その調整途中の値を
+    // 拾ってしまうと同じ部屋・同じ端末で測っても毎回大きく違う値になる（実際に確認済み）。
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    })
       .then(stream => {
-        document.getElementById('permStatus').innerText = 'マイクへのアクセスが許可されました。測定中…';
+        document.getElementById('permStatus').innerText = 'マイクへのアクセスが許可されました。準備中…';
         document.getElementById('meterBox').style.display = 'block';
         document.getElementById('result').style.display = 'none';
         document.getElementById('retryBtn').style.display = 'none';
@@ -60,6 +65,8 @@
         dataArray = new Uint8Array(analyser.fftSize);
 
         const startTime = performance.now();
+        const WARMUP_MS = 1000; // 最初の1秒は計測に含めない（ストリーム開始直後の不安定な区間を捨てる）
+        const MEASURE_MS = 3000; // 実際に平均に使う区間の長さ
         function tick() {
           analyser.getByteTimeDomainData(dataArray);
           let sumSq = 0;
@@ -69,13 +76,19 @@
           }
           const rms = Math.sqrt(sumSq / dataArray.length);
           const dbLike = rms > 0 ? Math.max(0, 20 * Math.log10(rms) + 100) : 0; // 0-100くらいに収まる仮換算
-          samples.push(dbLike);
+          const elapsed = performance.now() - startTime;
 
           document.getElementById('fill').style.width = Math.min(100, dbLike) + '%';
           document.getElementById('fill').style.background = dbLike > THRESHOLD_DB ? '#e53935' : '#4caf50';
-          document.getElementById('level').innerText = dbLike.toFixed(1) + ' (相対値)';
 
-          if (performance.now() - startTime < 3000) {
+          if (elapsed < WARMUP_MS) {
+            document.getElementById('permStatus').innerText = 'マイクへのアクセスが許可されました。準備中…';
+            document.getElementById('level').innerText = '-- (準備中)';
+            rafId = requestAnimationFrame(tick);
+          } else if (elapsed < WARMUP_MS + MEASURE_MS) {
+            document.getElementById('permStatus').innerText = '測定中…';
+            document.getElementById('level').innerText = dbLike.toFixed(1) + ' (相対値)';
+            samples.push(dbLike);
             rafId = requestAnimationFrame(tick);
           } else {
             finish(stream);
