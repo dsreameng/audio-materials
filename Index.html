@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>実験参加</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Yu Gothic", "Hiragino Sans", sans-serif; max-width: 640px; margin: 0 auto; padding: 24px 16px 80px; line-height: 1.8; color: #222; font-size: 17px; }
+  h2 { font-size: 22px; margin-bottom: 14px; }
+  h3 { font-size: 18px; margin: 20px 0 10px; }
+  p { font-size: 17px; }
+  .hidden { display: none; }
+  label { font-size: 17px; }
+  input[type=text], input[type=number], input[type=date], input[type=email] {
+    display: block; width: 100%; box-sizing: border-box; padding: 8px 2px; font-size: 17px;
+    margin: 6px 0 20px; border: none; border-bottom: 2px solid #999; border-radius: 0; background: transparent;
+  }
+  input[type=text]:focus, input[type=number]:focus, input[type=date]:focus, input[type=email]:focus {
+    outline: none; border-bottom-color: #2b6cb0;
+  }
+  select {
+    width: 100%; padding: 10px; font-size: 17px; margin: 6px 0 14px; border: 1px solid #bbb; border-radius: 6px;
+  }
+  button { padding: 12px 20px; font-size: 17px; border: none; border-radius: 6px; background: #2b6cb0; color: #fff; cursor: pointer; }
+  button:disabled { background: #aaa; cursor: not-allowed; }
+  .choice-btn { background: #e2e2e2; color: #333; margin-right: 8px; }
+  .choice-btn.selected { background: #2b6cb0; color: #fff; }
+  .error { color: #c0392b; font-size: 16px; min-height: 18px; }
+  .field-highlight { border-color: #c0392b !important; background: #fdf1f0; }
+  fieldset.field-highlight { border-width: 2px; }
+  .field-error-msg { color: #c0392b; font-weight: bold; font-size: 15px; margin: 6px 0 2px; }
+  .likert { display: flex; justify-content: space-between; margin: 8px 0 18px; font-size: 17px; }
+  .likert label { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  fieldset { border: 1px solid #ddd; border-radius: 6px; margin-bottom: 14px; padding: 12px 16px; }
+  legend { font-size: 17px; color: #444; padding: 0 6px; }
+  .note { font-size: 16px; color: #666; }
+  #storyAudio { width: 100%; margin: 20px 0; }
+  .callout {
+    background: #fff3cd; border: 2px solid #f0ad4e; border-radius: 8px;
+    padding: 16px 18px; margin-top: 18px; font-size: 19px; font-weight: bold;
+    color: #5a4400; text-align: center; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 画面D: 対応デバイス外の場合のブロック画面 ============ -->
+<div id="screen-blocked" class="screen hidden">
+  <h2>ご利用のデバイスについて</h2>
+  <p>本実験はパソコンまたはiPad（タブレット）でのご参加をお願いしております。お手数ですが、パソコンまたはiPadで改めて本リンクを開いてください。なお、このコードはまだ使用されていませんので、対応デバイスから開き直していただければ問題なく参加いただけます。</p>
+</div>
+
+<!-- ============ 画面0: 口令入力 ============ -->
+<div id="screen-code" class="screen">
+  <h2>参加コードの入力</h2>
+  <p>実験者から配布されたコードを入力してください。</p>
+  <p>このコードは、「環境・ヘッドホンの確認」画面で「次へ（音声材料へ進む）」を押した時点で正式に使用済みとなります。それ以降にページを再読み込み・再接続しても、同じコードで参加を続けることはできませんのでご注意ください。</p>
+  <p class="note">なお、それより前の段階（説明動画・同意・事前アンケート・環境確認など）で途中終了した場合は、コードはまだ使用されていないため、後日あらためて同じコードでご参加いただけます。</p>
+  <input type="text" id="codeInput" placeholder="例）ABCD-1234">
+  <p class="error" id="codeError"></p>
+  <button id="codeSubmitBtn" onclick="submitCode()">次へ</button>
+</div>
+
+<!-- ============ 画面1: 説明動画 ============ -->
+<div id="screen-video" class="screen hidden">
+  <h2>実験の説明</h2>
+  <p>以下の動画で実験の流れをご確認ください。</p>
+  <!-- TODO: srcに説明動画のURLを設定する -->
+  <video id="introVideo" controls style="width:100%;" src="REPLACE_WITH_VIDEO_URL"></video>
+  <p class="note" id="videoStatus">動画を最後まで再生すると、ボタンが押せるようになります。</p>
+  <button id="videoNextBtn" onclick="show('screen-consent')" disabled>説明を読み終えた（同意画面へ）</button>
+</div>
+
+<!-- ============ 画面2: 同意 ============ -->
+<div id="screen-consent" class="screen hidden">
+  <h2>参加への同意</h2>
+  <p>本研究への参加は任意であり、いつでも中断できます。ご回答は統計的に処理し、個人が特定される形で公表することはありません。</p>
+  <label><input type="checkbox" id="consentCheck"> 上記の説明を読み、内容を理解したうえで、本研究への参加に同意します。</label>
+  <br><br>
+  <input type="text" id="nameInput" placeholder="氏名（お申込み時にご使用になったお名前をご入力ください）">
+  <input type="email" id="consentEmailInput" placeholder="メールアドレス（お申込み時にご使用になったものをご入力ください）">
+  <p class="note">同意日：<span id="todayDateDisplay"></span>（システムが自動的に記録します。入力は不要です）</p>
+  <p class="note">氏名・メールアドレス・同意日は同意記録としてのみ使用し、研究データ（実験ID管理）とは別に保管されます。</p>
+  <p class="error" id="consentError"></p>
+  <button id="consentSubmitBtn" onclick="submitConsent()">同意して次へ</button>
+</div>
+
+<!-- ============ 画面3: 事前アンケート ============ -->
+<div id="screen-pre" class="screen hidden">
+  <h2>事前の質問</h2>
+  <p>この後、音声を聴取していただきます。</p>
+  <div id="preContainer"></div>
+  <p class="error" id="preError"></p>
+  <button id="preSubmitBtn" onclick="submitPre()">次へ</button>
+</div>
+
+<!-- ============ 画面4: 環境音・ヘッドホン確認 ============ -->
+<div id="screen-headphone" class="screen hidden">
+  <h2>環境・ヘッドホンの確認</h2>
+  <p>この後すぐに音声材料の再生に入ります。その前に2点確認します。</p>
+
+  <fieldset>
+    <legend>1. 周囲の環境の確認</legend>
+    <p>周囲が静かで、この後20分ほど集中して聴取に取り組める環境にいらっしゃいますか。</p>
+
+    <button id="envCheckBtn" class="choice-btn" onclick="startEnvNoiseCheck()">マイクで環境音を測定する（推奨）</button>
+    <p class="note" id="envCheckStatus"></p>
+
+    <p class="note">マイクが使えない・測定がうまくいかない場合は、こちらでお答えください。</p>
+    <button id="envYesBtn" class="choice-btn" onclick="setEnvResult(true)">はい、静かな環境です</button>
+    <button id="envNoBtn" class="choice-btn" onclick="setEnvResult(false)">いいえ</button>
+    <p id="envStatus"></p>
+    <div id="envExitBox" class="hidden">
+      <p class="note">静かな環境に移動できましたら、上の「はい、静かな環境です」を押して続けてください。今回はここで参加を終了する場合は、下のボタンを押してください（このコードはまだ使用されていないため、後日あらためて同じコードでご参加いただけます）。</p>
+      <button onclick="exitBeforeCommit()" style="background:#888;">今回は参加を見合わせる</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. ヘッドホン・イヤホンの確認</legend>
+    <p>ヘッドホンまたはイヤホンを装着し、下のテスト音声を再生してください。正しく装着している場合のみ、特定の音が聞こえます。</p>
+    <!-- TODO: srcにHuggins Pitch等のヘッドホン確認テスト音源URLを設定する -->
+    <audio id="hpTestAudio" controls src="REPLACE_WITH_HEADPHONE_TEST_URL"></audio>
+    <p class="note" id="hpPlayStatus">テスト音声を最後まで再生すると、下のボタンが押せるようになります。</p>
+    <p>その音は聞こえましたか。</p>
+    <button id="hpYesBtn" class="choice-btn" onclick="setHeadphoneResult(true)" disabled>はい、聞こえた</button>
+    <button id="hpNoBtn" class="choice-btn" onclick="setHeadphoneResult(false)" disabled>聞こえない・分からない</button>
+    <div id="hpExitBox" class="hidden">
+      <p class="note">お使いの機器やヘッドホン・イヤホンの接続をご確認ください。それでも解決しない場合は、実験者（<span id="hpContactEmail"></span>）までご連絡ください。今回はここで参加を終了する場合は、下のボタンを押してください（このコードはまだ使用されていないため、後日あらためて同じコードでご参加いただけます）。</p>
+      <button onclick="exitBeforeCommit()" style="background:#888;">今回は参加を見合わせる</button>
+    </div>
+  </fieldset>
+
+  <p class="error" id="hpError"></p>
+  <button id="hpContinueBtn" onclick="proceedToMaterial()" disabled>次へ（音声材料へ進む）</button>
+</div>
+
+<!-- ============ 画面E: 参加を見合わせた場合の終了画面 ============ -->
+<div id="screen-exit-early" class="screen hidden">
+  <h2>ここまでで終了します</h2>
+  <p>ご協力いただきありがとうございました。今回は参加を見合わせていただきました。このコードはまだ使用されていませんので、環境が整いましたら同じリンク・同じコードで改めてご参加いただけます。このページは閉じていただいて結構です。</p>
+</div>
+
+<!-- ============ 画面5: 音声聴取 ============ -->
+<div id="screen-audio" class="screen hidden" tabindex="-1">
+  <h2>音声を聴いてください</h2>
+  <p>再生ボタンを押すと音声が始まります。早送り・巻き戻し・一時停止はできません。最後まで通してお聴きください。</p>
+  <audio id="storyAudio" src="" preload="auto" controlslist="nodownload noplaybackrate nofullscreen"></audio>
+  <p id="audioLoadStatus" class="note"></p>
+  <button id="playBtn" onclick="startAudio()" disabled>読み込み中…</button>
+  <div class="callout">音声再生中は、目を閉じて集中して最後までお聴きください。</div>
+  <!-- テストコード（例: TEST-001）でアクセスした場合のみ表示される、動作確認用のスキップボタン。
+       本番の口令（Codesシートにexpected_nameがある等、"TEST"で始まらないコード）では一切表示されない。 -->
+  <button id="testSkipBtn" onclick="skipAudioForTesting()" class="hidden" style="background:#999; margin-top:10px;">［テスト用］音声をスキップして次へ</button>
+  <div style="margin-top:24px; border-top:1px solid #ddd; padding-top:14px;">
+    <p class="note">気分が悪くなった場合など、無理をせずいつでも中止できます。</p>
+    <button onclick="requestTerminate()" style="background:#888;">実験を中止する</button>
+  </div>
+</div>
+
+<!-- ============ 中止確認モーダル ============ -->
+<div id="terminateConfirmOverlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.55); display:none; align-items:center; justify-content:center; z-index:1000; padding:20px;">
+  <div style="background:#fff; padding:24px; border-radius:10px; max-width:480px;">
+    <p style="font-weight:bold;">本当に今回の実験参加を中止しますか。</p>
+    <p>中止すると、この後の聴取・質問には進めません。ここまでの記録は「途中中止」として保存されます。謝礼につきましては、途中で中止された場合も同意書に記載の方針に従ってお支払いいたします。</p>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button onclick="confirmTerminate()" style="background:#c0392b;">はい、中止する</button>
+      <button onclick="cancelTerminate()" style="background:#888;">いいえ、続ける</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 画面: 通信環境不良による強制終了 ============ -->
+<div id="screen-network-issue" class="screen hidden">
+  <h2>ここまでで終了します</h2>
+  <p>通信状況が不安定な状態が繰り返し発生したため、今回はここで実験を終了させていただきました。安定した通信環境でないと、聴取・データの質を保つことが難しいためです。ご不便をおかけし申し訳ございません。</p>
+  <p>お手数ですが、実験者（<span id="networkIssueContactEmail"></span>）までご連絡ください。改めて参加いただける方法をご案内いたします。</p>
+  <p>このページは閉じていただいて結構です。</p>
+</div>
+
+<!-- ============ 画面: 参加者による自発的な中止 ============ -->
+<div id="screen-withdrawn" class="screen hidden">
+  <h2>ご協力ありがとうございました</h2>
+  <p>今回は実験の途中で参加を中止されました。ご協力いただきありがとうございました。</p>
+  <p>謝礼につきましては、同意書に記載の方針に従ってお支払いいたします。ご不明な点は実験者（<span id="withdrawnContactEmail"></span>）までご連絡ください。</p>
+  <p>このページは閉じていただいて結構です。</p>
+</div>
+
+<!-- ============ 画面6: 事後アンケート ============ -->
+<div id="screen-post" class="screen hidden">
+  <h2>聴取後の質問</h2>
+  <p>先ほど聴いた音声についてお答えください。</p>
+  <div id="postContainer"></div>
+
+  <fieldset>
+    <legend>D. あなたについて</legend>
+    <label>年齢</label>
+    <input type="number" id="ageInput" min="18" max="100">
+    <label>性別</label>
+    <select id="genderInput">
+      <option value="">選択してください</option>
+      <option value="男性">男性</option>
+      <option value="女性">女性</option>
+      <option value="その他">その他</option>
+      <option value="回答しない">回答しない</option>
+    </select>
+    <label>母語</label>
+    <select id="langInput" onchange="toggleOtherInput('langInput', 'langOtherBox')">
+      <option value="">選択してください</option>
+      <option value="日本語">日本語</option>
+      <option value="中国語">中国語</option>
+      <option value="英語">英語</option>
+      <option value="韓国語">韓国語</option>
+      <option value="その他">その他</option>
+    </select>
+    <div id="langOtherBox" class="hidden">
+      <input type="text" id="langOtherInput" placeholder="具体的にご記入ください">
+    </div>
+    <label>自動車運転免許の有無</label>
+    <select id="licenseInput">
+      <option value="">選択してください</option>
+      <option value="あり">あり</option>
+      <option value="なし">なし</option>
+    </select>
+    <label>運転中に聴いたことがあるものを全て選んでください</label>
+    <div id="drivingListenContainer" style="margin-bottom:14px;"></div>
+  </fieldset>
+
+  <div id="postScaleTailContainer"></div>
+
+  <p class="error" id="postError"></p>
+  <button id="postSubmitBtn" onclick="submitPost()">提出する</button>
+</div>
+
+<!-- ============ 画面7: デブリーフィング ============ -->
+<div id="screen-debrief" class="screen hidden">
+  <h2>ご協力ありがとうございました</h2>
+  <p>本研究は、物語の描写の鮮明さが、聴き手の没入や心的イメージ生成に与える影響を検討することを目的としています。今回お聴きいただいた音声は、内容・登場人物・結末が同一で、描写の鮮明さのみが異なる2種類のバージョンのうちいずれか一方でした。</p>
+  <p>謝礼（Amazonギフト券）は、ご登録いただいたメールアドレス宛に7日以内にお送りいたします。</p>
+  <button onclick="finishSession()">終了する</button>
+</div>
+
+<!-- ============ 画面8: 終了 ============ -->
+<div id="screen-end" class="screen hidden">
+  <h2>セッションは終了しました</h2>
+  <p>このページを閉じていただいて結構です。ご協力ありがとうございました。</p>
+</div>
+
+<script>
+  // ================= 状態（意図的にlocalStorageを使わない：リロードで消えることで再開不可を担保する） =================
+  let sessionId = null;
+  let enteredCode = null;
+  let subjectId = null;
+  let assignedAudioUrl = null;
+  let assignedMaterialId = null;
+  let sessionActive = false;
+  let testSkipRequested = false; // テストコード使用時、音声スキップボタンが押されたかどうか
+  let isTestCode = false; // 口令が"TEST"で始まるか（動作確認用の各種スキップに使う）
+  let networkTerminated = false; // 通信不安定の繰り返しにより自動終了したかどうか
+  let voluntaryTerminated = false; // 参加者自身が「実験を中止する」を押したかどうか
+  // 音声再生の記録用（startAudio()内で使うが、中止系の関数からも参照するため上位スコープに置く）
+  let audioSeekAttempts = 0;
+  let audioStallEventCount = 0;
+  let audioTotalStallMs = 0;
+  let audioLongStallCount = 0; // 8秒超の長時間ストールが発生した回数（回線起因の強制終了判定に使う）
+
+  // ヘッドホン確認で「聞こえない」を選んだ場合等に案内する連絡先。Code.gsのRESEARCHER_CONTACT_EMAILと合わせておくこと。
+  const RESEARCHER_CONTACT_EMAIL = "dsreameng@gmail.com";
+  // 環境音チェック用のポップアップページ（Apps Scriptのiframe内ではgetUserMediaがブロックされるため、
+  // 別ホスト・別ウィンドウでマイク実測を行う。GitHub Pages等で公開したURLに置き換えること）。
+  const NOISE_CHECK_POPUP_URL = "REPLACE_WITH_NOISE_CHECK_POPUP_URL";
+  document.getElementById('hpContactEmail').innerText = RESEARCHER_CONTACT_EMAIL;
+  document.getElementById('networkIssueContactEmail').innerText = RESEARCHER_CONTACT_EMAIL;
+  document.getElementById('withdrawnContactEmail').innerText = RESEARCHER_CONTACT_EMAIL;
+
+  // 説明動画・ヘッドホンテスト音声：最後まで再生しないと先に進むボタンが押せないようにする
+  // （テストコードの場合はsubmitCode()内でスキップする）。
+  document.getElementById('introVideo').addEventListener('ended', function () {
+    document.getElementById('videoNextBtn').disabled = false;
+    document.getElementById('videoStatus').innerText = '';
+  });
+  document.getElementById('hpTestAudio').addEventListener('ended', function () {
+    document.getElementById('hpYesBtn').disabled = false;
+    document.getElementById('hpNoBtn').disabled = false;
+    document.getElementById('hpPlayStatus').innerText = '';
+  });
+
+  // 毎回同じ数字（「3」「２」）を指示すると、参加者側で位置を覚えて機械的にクリックされる恐れがあるため、
+  // セッションごとにランダムな数字を指示する。実際に指示した数字は payload に含めて保存し、
+  // 分析時にその数字と回答が一致しているかで正誤判定する（固定の「3」「２」との比較ではない）。
+  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  let preInstructedTarget = null;
+  let postAttentionTarget = null;
+
+  // ================= 事前アンケート（「実験1_事前アンケート」の確定文言。実験2は実験2_事前アンケートと同一構成） =================
+  const PRE_INSTRUCTED = { name: "instructed", scale: 5 };
+  const PRE_VVIQ_SCENES = [
+    { scene: "場面1：親しい友人・親族の顔", items: ["顔の正確な輪郭", "目・鼻・口などの特徴的な部分", "肌の色・髪の色", "目の色"] },
+    { scene: "場面2：見慣れた場所の外観", items: ["場所の全体的な外観", "看板や表示の色と形", "入口のドアや窓", "周辺の様子"] },
+    { scene: "場面3：日の出または日没", items: ["太陽が水平線に近い時の色と形", "空の色の変化", "雲の形と色", "水平線または地平線の様子"] },
+    { scene: "場面4：田舎の風景", items: ["起伏のある地形の様子", "木々や草の色と形", "建物や農家の様子", "遠くの景色の見え方"] },
+  ];
+  const PRE_VVIQ_LABELS = { min: "全くイメージが浮かばない", max: "非常に鮮明なイメージが浮かぶ" };
+  const PRE_MOOD = { name: "mood", text: "現在のあなたの気分はいかがですか？", scale: 7, min: "非常に悪い", max: "非常に良い" };
+
+  // ================= 聴取後アンケート：材料ごとに異なる内容理解チェック・NTS項目 =================
+  // 「実験1_聴取後アンケート_材料1〜5」の確定文言。materialIdは Code.gs の AssignmentPool と一致させる（M1〜M5）。
+  const MATERIAL_QUESTIONS = {
+    M1: {
+      comp: [
+        { q: "田中は何をしている最中に、雪面の下の空洞に落ちましたか？", options: ["ハイキング", "スノーボードでの滑走", "雪かき", "山頂での休憩"] },
+        { q: "田中のスマートフォンが使えなくなった直接の原因は何でしたか？", options: ["電波が全く届かなかったから", "画面が割れたから", "バッテリーが切れたから", "パスワードを忘れたから"] },
+        { q: "田中は穴から這い上がる直前、まず何を外に投げ出しましたか？", options: ["ロープとショベル", "スノーボードとバックパック", "手袋とゴーグル", "携帯電話とモバイルバッテリー"] },
+      ],
+      nts5: "穴の底に叩きつけられた直後の、田中の恐怖の様子をはっきりとイメージすることができた。",
+      nts6: "命がけの脱出を終えて地上に這い上がった直後の、田中の疲労困憊の様子をはっきりとイメージすることができた。",
+    },
+    M2: {
+      comp: [
+        { q: "ハッチャンの頭のてっぺんにあった模様はどんな形でしたか？", options: ["星の形", "八の字の形", "ハートの形", "丸い形"] },
+        { q: "動物病院でハッチャンは何の病気と診断されましたか？", options: ["糖尿病", "心臓病", "腎臓病", "皮膚病"] },
+        { q: "動物病院で生まれた子猫は全部で何匹でしたか？", options: ["3匹", "4匹", "5匹", "6匹"] },
+      ],
+      nts5: "ヘアゴムをくわえて逃げ、ソファの下でルナを見つめていた瞬間の、ハッチャンの様子をはっきりとイメージすることができた。",
+      nts6: "生まれたばかりの子猫の頭にハッチャンと同じ模様を見つけた瞬間の、ルナの驚きと動揺の様子をはっきりとイメージすることができた。",
+    },
+    M3: {
+      comp: [
+        { q: "佐々木が金曜日の昼に持参したお弁当は何でしたか？", options: ["カレーライス", "トマト牛丼", "唐揚げ弁当", "パスタ"] },
+        { q: "吉田の実験を手伝うために、佐々木が連絡した総務部の人は誰でしたか？", options: ["橋本珠莉", "河野冨美", "金木満", "斉藤汀子"] },
+        { q: "エレベーターの前で金木が佐々木に見せたLINEメッセージは、誰から送られてきたものでしたか？", options: ["橋本珠莉", "河野冨美", "吉田隼也", "斉藤汀子"] },
+      ],
+      nts5: "河野からチョコミントを差し出された瞬間の、佐々木の様子をはっきりとイメージすることができた。",
+      nts6: "金木からのメッセージを見せられた直後、エレベーターの中で一人になった瞬間の、佐々木の様子をはっきりとイメージすることができた。",
+    },
+    M4: {
+      comp: [
+        { q: "佐藤は転生する前、何にぶつかられましたか？", options: ["バス", "トラック", "バイク", "自転車"] },
+        { q: "佐藤は若者がどこに落ちそうになっているのを助けましたか？", options: ["崖", "川", "井戸", "梯子"] },
+        { q: "水路の使用料値上げを待つよう提案した佐藤に対し、ガルドは何をしましたか？", options: ["感謝した", "賃金を払った", "殴って蹴った", "無視して立ち去った"] },
+      ],
+      nts5: "体を起こそうとして腰を痛め、壁に手をついた瞬間の、佐藤の様子をはっきりとイメージすることができた。",
+      nts6: "畑で初めてガルドの姿を見た瞬間の、ガルドの様子をはっきりとイメージすることができた。",
+    },
+    M5: {
+      comp: [
+        { q: "松本がSNSで見つけた写真に写っていた、少年たちが食べていたものは何でしたか？", options: ["カップ麺", "パン", "パスタ", "おにぎり"] },
+        { q: "松本が少年たちを店に招いた理由は何でしたか？", options: ["試合を応援するため", "慣れない食事で体力が落ちていたため", "店の宣伝のため", "コーチに頼まれたため"] },
+        { q: "決勝戦の結果はどうなりましたか？", options: ["日本が優勝した", "日本が準優勝だった", "延長戦の末に敗れた", "大会が中止になった"] },
+      ],
+      nts5: "コーチのSNSの投稿を読んだ瞬間の、松本の様子をはっきりとイメージすることができた。",
+      nts6: "決勝戦の結果を知った瞬間の、松本の様子をはっきりとイメージすることができた。",
+    },
+  };
+
+  // 材料に依存しない聴取後アンケート項目
+  // min/maxラベルは「実験1_聴取後アンケート」確定版に合わせつつ、C.セクション内で表記が
+  // 「非常によく当てはまる」「非常に当てはまる」と混在していた箇所は「非常によく当てはまる」に統一済み。
+  const POST_ATTENTION = { name: "attention", scale: 7, min: "全く当てはまらない", max: "非常によく当てはまる" };
+  const POST_NTS_LABELS = { min: "全くあてはまらない", max: "非常にあてはまる" };
+  const POST_NTS_COMMON = [
+    "物語で描かれている場面に自分がいるように感じた。",
+    "物語を聴いているあいだ、物語に入り込んでいるように感じた。",
+    "聴いているとき、この物語の結末を知りたいと思った。",
+    "この物語は自分の感情に影響を与えた。",
+  ];
+  const POST_IMAGERY_LABELS = { min: "全く当てはまらない", max: "非常に当てはまる" };
+  const POST_IMAGERY = [
+    "音声を聴きながら、頭の中に画面が浮かんだ。",
+    "音声を聴きながら、登場人物の姿を具体的に思い描けた。",
+    "音声を聴きながら、登場人物がいる空間の広がりや奥行きを頭の中で感じた。",
+    "音声を聴きながら、物語の空間的な配置を頭の中でイメージできた。",
+  ];
+  const POST_OPCHECK = [
+    { text: "この音声には、登場人物の問題が解決に向かう展開があった。", min: "全く当てはまらない", max: "非常によく当てはまる" },
+    { text: "この音声では、場面の様子や状況が具体的に描写されていた。", min: "全く当てはまらない", max: "非常によく当てはまる" },
+    { text: "この音声の描写は、情景や登場人物の様子が頭の中に鮮明に思い浮かぶようなものだった。", min: "全く当てはまらない", max: "非常によく当てはまる" },
+    { text: "出来事には明確な原因と結果があった。", min: "全く当てはまらない", max: "非常によく当てはまる" },
+    { text: "この音声の内容は理解しやすかった。", min: "全く当てはまらない", max: "非常によく当てはまる" },
+    { text: "この音声の内容には一貫性があった。", min: "全く当てはまらない", max: "非常によく当てはまる" },
+    { text: "この音声を聴いていて退屈だと感じた。", min: "全く当てはまらない", max: "非常によく当てはまる" },
+  ];
+  const POST_NATURALNESS = { name: "naturalness", text: "音声の自然さ", scale: 7, min: "非常に不自然だった", max: "非常に自然だった" };
+  const POST_AUDIBILITY = { name: "audibility", text: "声の聴きやすさ", scale: 7, min: "非常に聴きにくかった", max: "非常に聴きやすかった" };
+  const DRIVING_OPTIONS = ["音楽", "ラジオ", "オーディオブック・朗読", "ポッドキャスト", "聴いたことがない", "その他"];
+
+  // ---------- 共通レンダリング ----------
+  function likertRow(name, text, scale, minLabel, maxLabel) {
+    let caption = (minLabel && maxLabel) ? `<div class="note">${minLabel}（1）〜${maxLabel}（${scale}）</div>` : '';
+    let html = `<fieldset><legend>${text}</legend>${caption}<div class="likert">`;
+    for (let v = 1; v <= scale; v++) {
+      html += `<label><input type="radio" name="${name}" value="${v}">${v}</label>`;
+    }
+    html += `</div></fieldset>`;
+    return html;
+  }
+
+  function mcRow(name, q, options) {
+    let html = `<fieldset><legend>${q}</legend>`;
+    options.forEach((opt, i) => {
+      html += `<label style="display:block; font-weight:normal;"><input type="radio" name="${name}" value="${i}"> ${opt}</label>`;
+    });
+    html += `</fieldset>`;
+    return html;
+  }
+
+  function buildPreQuestionnaire() {
+    let html = '';
+    preInstructedTarget = randInt(2, PRE_INSTRUCTED.scale - 1); // 端（1・5）は避け、セッションごとに変える
+    html += likertRow(PRE_INSTRUCTED.name, `以下の質問に「${preInstructedTarget}」とお答えください。`, PRE_INSTRUCTED.scale);
+    PRE_VVIQ_SCENES.forEach((sceneObj, si) => {
+      html += `<h3>【${sceneObj.scene}】</h3>`;
+      sceneObj.items.forEach((t, ii) => {
+        html += likertRow(`vviq_${si}_${ii}`, t, 5, PRE_VVIQ_LABELS.min, PRE_VVIQ_LABELS.max);
+      });
+    });
+    html += likertRow(PRE_MOOD.name, PRE_MOOD.text, PRE_MOOD.scale, PRE_MOOD.min, PRE_MOOD.max);
+    document.getElementById('preContainer').innerHTML = html;
+  }
+  buildPreQuestionnaire();
+
+  // 材料が確定してから呼ぶ（assignMaterial成功後）
+  function buildPostQuestionnaire(materialId) {
+    const mq = MATERIAL_QUESTIONS[materialId];
+    let html = '<h3>内容理解チェック</h3>';
+    mq.comp.forEach((c, i) => { html += mcRow('comp_' + i, c.q, c.options); });
+    html += '<h3>アテンションチェック</h3>';
+    postAttentionTarget = randInt(2, POST_ATTENTION.scale - 1); // 端（1・7）は避け、セッションごとに変える
+    html += likertRow(POST_ATTENTION.name, `この項目では「${postAttentionTarget}」を選択してください。`, POST_ATTENTION.scale, POST_ATTENTION.min, POST_ATTENTION.max);
+    html += '<h3>A. 物語への没入度</h3>';
+    POST_NTS_COMMON.forEach((t, i) => { html += likertRow('nts_' + i, t, 7, POST_NTS_LABELS.min, POST_NTS_LABELS.max); });
+    html += likertRow('nts_4', mq.nts5, 7, POST_NTS_LABELS.min, POST_NTS_LABELS.max);
+    html += likertRow('nts_5', mq.nts6, 7, POST_NTS_LABELS.min, POST_NTS_LABELS.max);
+    html += '<h3>B. 頭の中のイメージについて</h3>';
+    POST_IMAGERY.forEach((t, i) => { html += likertRow('img_' + i, t, 7, POST_IMAGERY_LABELS.min, POST_IMAGERY_LABELS.max); });
+    html += '<h3>C. 音声の内容について</h3>';
+    POST_OPCHECK.forEach((o, i) => { html += likertRow('op_' + i, o.text, 7, o.min, o.max); });
+    document.getElementById('postContainer').innerHTML = html;
+
+    document.getElementById('drivingListenContainer').innerHTML = DRIVING_OPTIONS.map((opt, i) => {
+      const row = `<label style="display:block; font-weight:normal;"><input type="checkbox" id="driving_${i}" value="${opt}" ${opt === 'その他' ? "onchange=\"toggleOtherInput('driving_" + i + "', 'drivingOtherBox', true)\"" : ''}> ${opt}</label>`;
+      return row;
+    }).join('') + '<div id="drivingOtherBox" class="hidden" style="margin-top:6px;"><input type="text" id="drivingOtherInput" placeholder="具体的にご記入ください"></div>';
+
+    document.getElementById('postScaleTailContainer').innerHTML =
+      likertRow(POST_NATURALNESS.name, POST_NATURALNESS.text, 7, POST_NATURALNESS.min, POST_NATURALNESS.max) +
+      likertRow(POST_AUDIBILITY.name, POST_AUDIBILITY.text, 7, POST_AUDIBILITY.min, POST_AUDIBILITY.max);
+  }
+
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+  }
+
+  // セレクト（select）またはチェックボックス（checkbox）で「その他」が選ばれたときにテキスト欄を表示する共通関数
+  function toggleOtherInput(controlId, boxId, isCheckbox) {
+    const box = document.getElementById(boxId);
+    if (isCheckbox) {
+      box.classList.toggle('hidden', !document.getElementById(controlId).checked);
+    } else {
+      box.classList.toggle('hidden', document.getElementById(controlId).value !== 'その他');
+    }
+  }
+
+  // ---------- デバイス種別チェック（スマートフォンのみ拒否。PC/iPad/Androidタブレットは許可） ----------
+  // 注：ここでは例外を投げない。screen-blockedを表示するだけで、他のスクリーンは
+  // 非表示のままなので参加者は操作できない。口令はまだ消費していないため、
+  // 対応デバイスで開き直せば問題なく参加できる。
+  function checkDevice() {
+    const ua = navigator.userAgent;
+    const isIPhone = /iPhone|iPod/.test(ua);
+    const isAndroidPhone = /Android/.test(ua) && /Mobile/.test(ua);
+    if (isIPhone || isAndroidPhone) {
+      show('screen-blocked');
+      return false;
+    }
+    return true;
+  }
+  const deviceOk = checkDevice();
+
+  function getRadioValue(name) {
+    const el = document.querySelector(`input[name="${name}"]:checked`);
+    return el ? Number(el.value) : null;
+  }
+
+  // ================= 未回答項目の自動スクロール＋赤字表示 =================
+  // 事前・事後アンケートで「すべての項目に回答してください」だけでは自分でも
+  // どこが未回答か探しにくいため、最初の未回答項目まで自動でスクロールし、
+  // 赤枠・赤字で示す。回答すると、そのままそこに留まらず自動的に次の未回答項目へ移動する。
+  let currentValidationList = null;
+
+  function clearUnansweredFlags() {
+    document.querySelectorAll('.field-highlight').forEach(el => el.classList.remove('field-highlight'));
+    document.querySelectorAll('.field-error-msg').forEach(el => el.remove());
+  }
+
+  function flagUnansweredGroup(name) {
+    const input = document.querySelector(`input[name="${name}"]`);
+    if (!input) return;
+    const fs = input.closest('fieldset') || input.parentElement;
+    clearUnansweredFlags();
+    fs.classList.add('field-highlight');
+    const msg = document.createElement('div');
+    msg.className = 'field-error-msg';
+    msg.innerText = 'この項目に回答してください。';
+    fs.prepend(msg);
+    fs.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function flagUnansweredField(elId, message) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    clearUnansweredFlags();
+    el.classList.add('field-highlight');
+    const msg = document.createElement('div');
+    msg.className = 'field-error-msg';
+    msg.innerText = message || 'この項目に回答してください。';
+    el.parentNode.insertBefore(msg, el);
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // list: [{type:'group', name:'xxx'} | {type:'field', id:'xxx', check:fn, message:'...'}]
+  // 戻り値: すべて回答済みならtrue。未回答があれば最初の1件をスクロール表示してfalseを返す。
+  function runValidation(list) {
+    for (const item of list) {
+      if (item.type === 'group') {
+        if (getRadioValue(item.name) === null) { flagUnansweredGroup(item.name); return false; }
+      } else if (item.type === 'field') {
+        if (!item.check()) { flagUnansweredField(item.id, item.message); return false; }
+      }
+    }
+    clearUnansweredFlags();
+    return true;
+  }
+
+  // 回答するたびに、まだ残っている未回答項目があれば自動的にそこへ移動する
+  document.addEventListener('change', function () {
+    if (currentValidationList) runValidation(currentValidationList);
+  });
+  document.addEventListener('input', function (e) {
+    if (currentValidationList && (e.target.tagName === 'INPUT' && (e.target.type === 'number' || e.target.type === 'text'))) {
+      runValidation(currentValidationList);
+    }
+  });
+
+  // 離脱・再読み込みへの警告（意図：口令はサーバー側で既に使用済みのため、再読み込みしても復帰できない）
+  window.addEventListener('beforeunload', function (e) {
+    if (sessionActive) {
+      e.preventDefault();
+      e.returnValue = 'このページを離れると、参加を続けることができなくなります。';
+    }
+  });
+
+  // ---------- 画面0: 口令 ----------
+  // 注：ここではまだ口令を「使用済み」にしない。実際に消費するのは画面4で
+  // 「次へ（音声材料へ進む）」を押した時点（commitCode）。それより前に離脱した場合、
+  // 同じ口令をそのまま使い直せる。
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function submitCode() {
+    const code = document.getElementById('codeInput').value;
+    document.getElementById('codeSubmitBtn').disabled = true;
+    document.getElementById('codeError').innerText = '';
+    google.script.run
+      .withSuccessHandler(function (res) {
+        document.getElementById('codeSubmitBtn').disabled = false;
+        if (res.success) {
+          sessionId = res.sessionId;
+          enteredCode = code;
+          sessionActive = true;
+          document.getElementById('todayDateDisplay').innerText = todayStr();
+
+          // TESTで始まる口令のみ、動画視聴・テスト音声再生の完了チェックをスキップする（動作確認用）。
+          // 本番の口令では、動画・テスト音声を最後まで見聞きするまでボタンは押せないまま。
+          isTestCode = /^test/i.test(code || '');
+          if (isTestCode) {
+            document.getElementById('videoNextBtn').disabled = false;
+            document.getElementById('videoStatus').innerText = 'テストコードのため、視聴完了チェックをスキップしています。';
+            document.getElementById('hpYesBtn').disabled = false;
+            document.getElementById('hpNoBtn').disabled = false;
+            document.getElementById('hpPlayStatus').innerText = 'テストコードのため、再生完了チェックをスキップしています。';
+          }
+
+          show('screen-video');
+        } else {
+          document.getElementById('codeError').innerText = res.reason;
+        }
+      })
+      .withFailureHandler(function (err) {
+        document.getElementById('codeSubmitBtn').disabled = false;
+        document.getElementById('codeError').innerText = '通信エラーが発生しました。' + err;
+      })
+      .validateCode(code);
+  }
+
+  // ---------- 画面2: 同意 ----------
+  function submitConsent() {
+    const checked = document.getElementById('consentCheck').checked;
+    const name = document.getElementById('nameInput').value;
+    const email = document.getElementById('consentEmailInput').value;
+    const date = todayStr();
+    const errEl = document.getElementById('consentError');
+    if (!checked) { errEl.innerText = '同意事項へのチェックが必要です。'; return; }
+    if (!name.trim()) { errEl.innerText = '氏名を入力してください。'; return; }
+    if (!email.trim()) { errEl.innerText = 'メールアドレスを入力してください。'; return; }
+    errEl.innerText = '';
+    document.getElementById('consentSubmitBtn').disabled = true;
+    google.script.run
+      .withSuccessHandler(function (res) {
+        document.getElementById('consentSubmitBtn').disabled = false;
+        if (res.success) {
+          subjectId = res.subjectId;
+          show('screen-pre');
+        } else {
+          errEl.innerText = res.reason;
+        }
+      })
+      .withFailureHandler(function (err) {
+        document.getElementById('consentSubmitBtn').disabled = false;
+        errEl.innerText = '通信エラーが発生しました。' + err;
+      })
+      .recordConsent(sessionId, name, date, enteredCode, email);
+  }
+
+  // ---------- 画面3: 事前アンケート ----------
+  function buildPreValidationList() {
+    const list = [{ type: 'group', name: PRE_INSTRUCTED.name }];
+    for (let si = 0; si < PRE_VVIQ_SCENES.length; si++) {
+      for (let ii = 0; ii < PRE_VVIQ_SCENES[si].items.length; ii++) {
+        list.push({ type: 'group', name: `vviq_${si}_${ii}` });
+      }
+    }
+    list.push({ type: 'group', name: PRE_MOOD.name });
+    return list;
+  }
+
+  function submitPre() {
+    const errEl = document.getElementById('preError');
+    currentValidationList = buildPreValidationList();
+    if (!runValidation(currentValidationList)) {
+      errEl.innerText = '未回答の項目があります。該当箇所を赤字で表示しました。';
+      return;
+    }
+
+    const instructedCheck = getRadioValue(PRE_INSTRUCTED.name);
+    const vviq = {};
+    for (let si = 0; si < PRE_VVIQ_SCENES.length; si++) {
+      for (let ii = 0; ii < PRE_VVIQ_SCENES[si].items.length; ii++) {
+        vviq[`scene${si + 1}_${ii + 1}`] = getRadioValue(`vviq_${si}_${ii}`);
+      }
+    }
+    const mood = getRadioValue(PRE_MOOD.name);
+
+    errEl.innerText = '';
+    document.getElementById('preSubmitBtn').disabled = true;
+    google.script.run
+      .withSuccessHandler(function (res) {
+        document.getElementById('preSubmitBtn').disabled = false;
+        if (res.success) {
+          currentValidationList = null;
+          clearUnansweredFlags();
+          show('screen-headphone');
+        } else {
+          errEl.innerText = res.reason;
+        }
+      })
+      .withFailureHandler(function (err) {
+        document.getElementById('preSubmitBtn').disabled = false;
+        errEl.innerText = '通信エラーが発生しました。' + err;
+      })
+      .savePreQuestionnaire(sessionId, { instructedCheck: instructedCheck, instructedTarget: preInstructedTarget, vviq: vviq, mood: mood });
+  }
+
+  // ---------- 画面4: 環境確認 ----------
+  // Apps Script配信ページ（exec URL）はGoogle側のiframeでラップされ、最内層フレームに
+  // マイク権限が許可されていないためgetUserMediaが使えない。そこでマイク実測は
+  // window.open()で別ホスト（Apps Scriptの外＝制限を受けない独立したトップレベルウィンドウ）
+  // に切り出し、測定結果をpostMessageで受け取る方式にした。ポップアップブロック等で
+  // 測定が使えない場合に備え、従来の自己申告ボタンもそのまま残してフォールバックにしている。
+  let envQuiet = null;
+  let headphoneOk = null;
+  let envCheckMethod = null;   // 'mic' or 'self_report'（Responsesシートに記録、集計時の判別用）
+  let envMeasuredValue = null; // マイク実測時の相対値（校正済みの絶対dBではない点に注意。null=自己申告）
+  let envCheckPopup = null;
+  let envCheckPollId = null;
+
+  function selectChoice(selectedId, otherId) {
+    document.getElementById(selectedId).classList.add('selected');
+    document.getElementById(otherId).classList.remove('selected');
+  }
+
+  // 「はい、静かな環境です」と「はい、聞こえた」の両方が選ばれていない限り次へは押せない
+  // （いいえ・分からない、を選んだだけでは進めない＝誤操作で先に進むことを防ぐ）
+  function updateHpContinueBtn() {
+    document.getElementById('hpContinueBtn').disabled = !(envQuiet === true && headphoneOk === true);
+  }
+
+  function setEnvResult(quiet) {
+    envQuiet = quiet;
+    // 手動の自己申告ボタンを直接押した場合は、マイク実測ではないことを明示する
+    // （startEnvNoiseCheckの結果を受けてこの関数が呼ばれた場合は、呼び出し側で先にenvCheckMethod='mic'を設定済み）
+    if (envCheckMethod !== 'mic') {
+      envCheckMethod = 'self_report';
+      envMeasuredValue = null;
+    }
+    selectChoice(quiet ? 'envYesBtn' : 'envNoBtn', quiet ? 'envNoBtn' : 'envYesBtn');
+    document.getElementById('envStatus').innerText = quiet ? '' : '恐れ入りますが、できるだけ静かな環境に移動してから、上のボタンで再度お答えください。';
+    document.getElementById('envExitBox').classList.toggle('hidden', quiet);
+    updateHpContinueBtn();
+  }
+
+  // マイクでの環境音実測を別ウィンドウで開始する
+  function startEnvNoiseCheck() {
+    const statusEl = document.getElementById('envCheckStatus');
+    envCheckPopup = window.open(NOISE_CHECK_POPUP_URL, 'envNoiseCheck', 'width=480,height=580');
+    if (!envCheckPopup) {
+      statusEl.innerText = 'ポップアップがブロックされました。ブラウザの設定でポップアップを許可するか、下の自己申告でお答えください。';
+      return;
+    }
+    statusEl.innerText = '別ウィンドウが開きます。マイクへのアクセスを許可し、測定を行ってください（完了すると自動的にこちらに反映されます）。';
+    clearInterval(envCheckPollId);
+    envCheckPollId = setInterval(function () {
+      if (envCheckPopup && envCheckPopup.closed && envMeasuredValue === null) {
+        clearInterval(envCheckPollId);
+        statusEl.innerText = 'ウィンドウが閉じられ、測定は完了しませんでした。よろしければ下の自己申告でお答えください。';
+      }
+    }, 1000);
+  }
+
+  // 環境音チェック用の別ウィンドウからの測定結果を受け取る
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== 'envNoiseResult') return;
+    clearInterval(envCheckPollId);
+    if (envCheckPopup && !envCheckPopup.closed) envCheckPopup.close();
+    envCheckMethod = 'mic';
+    envMeasuredValue = e.data.value;
+    document.getElementById('envCheckStatus').innerText =
+      '測定結果: ' + (e.data.quiet ? '静か' : 'やや騒がしい') + '（相対値 ' + Number(e.data.value).toFixed(1) + '。校正済みの絶対的な騒音レベルではなく、目安の値です）';
+    setEnvResult(e.data.quiet);
+  });
+
+  function setHeadphoneResult(heard) {
+    headphoneOk = heard;
+    selectChoice(heard ? 'hpYesBtn' : 'hpNoBtn', heard ? 'hpNoBtn' : 'hpYesBtn');
+    document.getElementById('hpError').innerText = '';
+    document.getElementById('hpExitBox').classList.toggle('hidden', heard);
+    updateHpContinueBtn();
+  }
+
+  // 口令をまだ消費していない段階での離脱。サーバー側で何も「使用済み」にしていないため、
+  // 特別な取り消し処理は不要（同じコードをそのまま使い直せる）。
+  function exitBeforeCommit() {
+    sessionActive = false;
+    show('screen-exit-early');
+  }
+
+  // ---------- 画面4→画面5: 口令を正式消費し、環境音・ヘッドホン結果を保存して材料割当へ ----------
+  // 口令が「使用済み」になるのはこの関数が呼ばれた瞬間（＝この「次へ」を押した時点）。
+  // それより前（説明・同意・事前アンケート・環境確認の途中）で離脱しても口令は消費されない。
+  function proceedToMaterial() {
+    document.getElementById('hpContinueBtn').disabled = true;
+    google.script.run
+      .withSuccessHandler(function (commitRes) {
+        if (!commitRes.success) {
+          document.getElementById('hpError').innerText = commitRes.reason;
+          document.getElementById('hpContinueBtn').disabled = false;
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function () {
+            google.script.run
+              .withSuccessHandler(function (res) {
+                if (res.success) {
+                  assignedAudioUrl = res.audioUrl;
+                  assignedMaterialId = res.materialId;
+                  buildPostQuestionnaire(assignedMaterialId);
+                  const audio = document.getElementById('storyAudio');
+                  const playBtn = document.getElementById('playBtn');
+                  const statusEl = document.getElementById('audioLoadStatus');
+                  statusEl.innerText = '音声を読み込んでいます…（回線状況によっては時間がかかります）';
+                  audio.addEventListener('canplaythrough', function onReady() {
+                    audio.removeEventListener('canplaythrough', onReady);
+                    playBtn.disabled = false;
+                    playBtn.innerText = '再生する';
+                    statusEl.innerText = '';
+                  });
+                  audio.addEventListener('error', function () {
+                    statusEl.innerText = '音声の読み込みに失敗しました。実験者にご連絡ください（担当者にはこの画面のスクリーンショットをお送りください）。';
+                  });
+                  audio.src = assignedAudioUrl;
+                  audio.load();
+                  // TESTで始まる口令（テストコード）でアクセスした場合のみ、動作確認用のスキップボタンを表示する。
+                  // 本番の口令ではこのボタンは一切表示されない（isTestCodeはsubmitCode()で設定済み）。
+                  document.getElementById('testSkipBtn').classList.toggle('hidden', !isTestCode);
+                  show('screen-audio');
+                } else {
+                  document.getElementById('hpError').innerText = res.reason;
+                  document.getElementById('hpContinueBtn').disabled = false;
+                }
+              })
+              .withFailureHandler(function (err) {
+                document.getElementById('hpError').innerText = '通信エラーが発生しました。' + err;
+                document.getElementById('hpContinueBtn').disabled = false;
+              })
+              .assignMaterial(sessionId);
+          })
+          .withFailureHandler(function (err) {
+            document.getElementById('hpError').innerText = '通信エラーが発生しました。' + err;
+            document.getElementById('hpContinueBtn').disabled = false;
+          })
+          .saveEnvCheck(sessionId, envQuiet, headphoneOk, envCheckMethod, envMeasuredValue);
+      })
+      .withFailureHandler(function (err) {
+        document.getElementById('hpError').innerText = '通信エラーが発生しました。' + err;
+        document.getElementById('hpContinueBtn').disabled = false;
+      })
+      .commitCode(sessionId, enteredCode);
+  }
+
+  // ---------- 画面5: 音声聴取（早送り・一時停止を禁止） ----------
+  // 通信が一時的に不安定になった場合、<audio>要素はネイティブの挙動として同じ再生位置のまま
+  // バッファリングを待ち、データが揃い次第「最初から」ではなく「止まった位置から」自動的に
+  // 再生を再開する（＝聴き直し・重複聴取にはならない）。8秒を超える長時間ストールが3回目
+  // 発生した場合は、通信環境がこの実験に適さないと判断し、自動的に実験を終了する
+  // （繰り返しの中断が没入度を損なうため。再挑戦は実験者が別途口令を発行して案内する）。
+  let stallCheckIntervalId = null;
+
+  function startAudio() {
+    const audio = document.getElementById('storyAudio');
+    const statusEl = document.getElementById('audioLoadStatus');
+    document.getElementById('playBtn').disabled = true;
+    google.script.run.recordAudioStart(sessionId);
+    audio.play();
+
+    let lastTime = 0;
+    let stallStart = null;
+    let longStallWarned = false; // 今回のストールについて、8秒超の警告を既にカウント済みか
+
+    audio.addEventListener('timeupdate', function () {
+      // 大きく飛んだ場合はシーク試行とみなして元の位置に戻す
+      if (Math.abs(audio.currentTime - lastTime) > 2) {
+        audio.currentTime = lastTime;
+        audioSeekAttempts++;
+      } else {
+        lastTime = audio.currentTime;
+      }
+    });
+    audio.addEventListener('pause', function () {
+      // 一時停止を無効化（テストスキップ・通信不良による自動終了・自発的中止の場合は除く）
+      if (!audio.ended && !testSkipRequested && !networkTerminated && !voluntaryTerminated) audio.play();
+    });
+
+    // 通信不安定によるバッファリング待ち（stall）の検知
+    audio.addEventListener('waiting', function () {
+      stallStart = Date.now();
+      longStallWarned = false;
+      audioStallEventCount++;
+    });
+    audio.addEventListener('playing', function () {
+      if (stallStart) {
+        audioTotalStallMs += (Date.now() - stallStart);
+        stallStart = null;
+      }
+      statusEl.innerText = '';
+    });
+    stallCheckIntervalId = setInterval(function () {
+      if (stallStart && Date.now() - stallStart > 8000) {
+        statusEl.innerText = '通信状況が不安定なようです。そのままお待ちください。データが揃い次第、止まった位置から自動的に再生が続きます。ページの更新・再読み込みはしないでください（更新すると参加を続けられなくなります）。';
+        if (!longStallWarned) {
+          longStallWarned = true;
+          audioLongStallCount++;
+          if (audioLongStallCount >= 3) {
+            terminateForNetworkIssue();
+          }
+        }
+      }
+    }, 2000);
+
+    audio.addEventListener('ended', function () {
+      clearInterval(stallCheckIntervalId);
+      google.script.run
+        .withSuccessHandler(function () { show('screen-post'); })
+        .recordAudioEnd(sessionId, { seekAttempts: audioSeekAttempts, stallEventCount: audioStallEventCount, totalStallMs: audioTotalStallMs });
+    });
+  }
+
+  // 通信不安定（8秒超のストールが3回）による自動終了
+  function terminateForNetworkIssue() {
+    if (networkTerminated) return; // 二重発火防止
+    networkTerminated = true;
+    clearInterval(stallCheckIntervalId);
+    const audio = document.getElementById('storyAudio');
+    audio.pause();
+    sessionActive = false;
+    google.script.run
+      .withSuccessHandler(function () { show('screen-network-issue'); })
+      .withFailureHandler(function () { show('screen-network-issue'); })
+      .recordAudioEnd(sessionId, {
+        seekAttempts: audioSeekAttempts, stallEventCount: audioStallEventCount, totalStallMs: audioTotalStallMs,
+        networkTerminated: true, longStallCount: audioLongStallCount,
+      });
+  }
+
+  // ---------- 参加者自身による自発的な実験中止 ----------
+  function requestTerminate() {
+    document.getElementById('terminateConfirmOverlay').style.display = 'flex';
+  }
+  function cancelTerminate() {
+    document.getElementById('terminateConfirmOverlay').style.display = 'none';
+  }
+  function confirmTerminate() {
+    document.getElementById('terminateConfirmOverlay').style.display = 'none';
+    voluntaryTerminated = true;
+    clearInterval(stallCheckIntervalId);
+    const audio = document.getElementById('storyAudio');
+    audio.pause();
+    sessionActive = false;
+    google.script.run
+      .withSuccessHandler(function () { show('screen-withdrawn'); })
+      .withFailureHandler(function () { show('screen-withdrawn'); })
+      .recordAudioEnd(sessionId, {
+        seekAttempts: audioSeekAttempts, stallEventCount: audioStallEventCount, totalStallMs: audioTotalStallMs,
+        voluntaryWithdrawal: true,
+      });
+  }
+
+  // テストコード（TEST-で始まる口令）でアクセスしたときのみ表示されるスキップボタン用。
+  // 本番の口令ではボタン自体が表示されないため呼ばれない。動作確認を高速化するためのもので、
+  // 早送り・一時停止の禁止機能（本番用）とは無関係。
+  function skipAudioForTesting() {
+    const audio = document.getElementById('storyAudio');
+    testSkipRequested = true;
+    clearInterval(stallCheckIntervalId);
+    audio.pause();
+    google.script.run
+      .withSuccessHandler(function () { show('screen-post'); })
+      .recordAudioEnd(sessionId, { seekAttempts: 0, stallEventCount: 0, totalStallMs: 0, testSkipped: true });
+  }
+  // 音声再生中はスペースキー等のショートカットを無効化
+  document.addEventListener('keydown', function (e) {
+    const audioScreen = document.getElementById('screen-audio');
+    if (!audioScreen.classList.contains('hidden') && (e.code === 'Space' || e.code.startsWith('Arrow'))) {
+      e.preventDefault();
+    }
+  });
+
+  // ---------- 画面6: 事後アンケート ----------
+  function buildPostValidationList() {
+    const list = [];
+    for (let i = 0; i < 3; i++) list.push({ type: 'group', name: 'comp_' + i });
+    list.push({ type: 'group', name: POST_ATTENTION.name });
+    for (let i = 0; i < 6; i++) list.push({ type: 'group', name: 'nts_' + i });
+    for (let i = 0; i < POST_IMAGERY.length; i++) list.push({ type: 'group', name: 'img_' + i });
+    for (let i = 0; i < POST_OPCHECK.length; i++) list.push({ type: 'group', name: 'op_' + i });
+    list.push({ type: 'group', name: POST_NATURALNESS.name });
+    list.push({ type: 'group', name: POST_AUDIBILITY.name });
+    list.push({ type: 'field', id: 'ageInput', message: '年齢を入力してください。', check: () => document.getElementById('ageInput').value !== '' });
+    list.push({ type: 'field', id: 'genderInput', message: '性別を選択してください。', check: () => document.getElementById('genderInput').value !== '' });
+    list.push({ type: 'field', id: 'langInput', message: '母語を選択してください。', check: () => document.getElementById('langInput').value !== '' });
+    list.push({ type: 'field', id: 'licenseInput', message: '自動車運転免許の有無を選択してください。', check: () => document.getElementById('licenseInput').value !== '' });
+    return list;
+  }
+
+  function submitPost() {
+    const errEl = document.getElementById('postError');
+    currentValidationList = buildPostValidationList();
+    if (!runValidation(currentValidationList)) {
+      errEl.innerText = '未回答の項目があります。該当箇所を赤字で表示しました。';
+      return;
+    }
+
+    const answers = { materialId: assignedMaterialId };
+    answers.comp = [];
+    for (let i = 0; i < 3; i++) answers.comp.push(getRadioValue('comp_' + i));
+    answers.attention = getRadioValue(POST_ATTENTION.name);
+    answers.attentionTarget = postAttentionTarget;
+    answers.nts = [];
+    for (let i = 0; i < 6; i++) answers.nts.push(getRadioValue('nts_' + i));
+    answers.imagery = [];
+    for (let i = 0; i < POST_IMAGERY.length; i++) answers.imagery.push(getRadioValue('img_' + i));
+    answers.opcheck = [];
+    for (let i = 0; i < POST_OPCHECK.length; i++) answers.opcheck.push(getRadioValue('op_' + i));
+    answers.naturalness = getRadioValue(POST_NATURALNESS.name);
+    answers.audibility = getRadioValue(POST_AUDIBILITY.name);
+
+    const age = document.getElementById('ageInput').value;
+    const gender = document.getElementById('genderInput').value;
+    let nativeLanguage = document.getElementById('langInput').value;
+    const license = document.getElementById('licenseInput').value;
+    if (nativeLanguage === 'その他') {
+      const langOther = document.getElementById('langOtherInput').value.trim();
+      if (langOther) nativeLanguage = 'その他（' + langOther + '）';
+    }
+    answers.license = license;
+    answers.driving = DRIVING_OPTIONS.filter((opt, i) => document.getElementById('driving_' + i).checked);
+    if (answers.driving.includes('その他')) {
+      const drivingOther = document.getElementById('drivingOtherInput').value.trim();
+      if (drivingOther) answers.driving = answers.driving.map(o => o === 'その他' ? 'その他（' + drivingOther + '）' : o);
+    }
+
+    errEl.innerText = '';
+    document.getElementById('postSubmitBtn').disabled = true;
+    google.script.run
+      .withSuccessHandler(function (res) {
+        document.getElementById('postSubmitBtn').disabled = false;
+        if (res.success) {
+          currentValidationList = null;
+          clearUnansweredFlags();
+          show('screen-debrief');
+        } else {
+          errEl.innerText = res.reason;
+        }
+      })
+      .withFailureHandler(function (err) {
+        document.getElementById('postSubmitBtn').disabled = false;
+        errEl.innerText = '通信エラーが発生しました。' + err;
+      })
+      .savePostQuestionnaire(sessionId, answers, { age: age, gender: gender, nativeLanguage: nativeLanguage });
+  }
+
+  // ---------- 画面7→8: 終了 ----------
+  function finishSession() {
+    sessionActive = false; // beforeunload警告を解除してから遷移
+    show('screen-end');
+  }
+</script>
+</body>
+</html>
