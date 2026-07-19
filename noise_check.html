@@ -2,60 +2,35 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>環境音チェック</title>
+<title>環境音の確認</title>
 <style>
-  body{font-family:sans-serif;max-width:480px;margin:40px auto;padding:0 16px;line-height:1.7;}
-  #bar{width:100%;height:28px;background:#eee;border-radius:6px;overflow:hidden;margin:12px 0;}
-  #fill{height:100%;width:0%;background:#4caf50;transition:width .1s linear, background .1s linear;}
-  #level{font-size:28px;font-weight:bold;}
-  #result{font-size:16px;margin-top:16px;padding:10px;border-radius:6px;}
-  .ok{background:#e8f5e9;color:#2e7d32;}
-  .ng{background:#ffebee;color:#c62828;}
-  button{padding:10px 18px;font-size:15px;margin-top:12px;}
-  .note{color:#777;font-size:13px;}
+  body{font-family:sans-serif;max-width:420px;margin:30px auto;padding:0 16px;line-height:1.7;}
+  #bar{width:100%;height:20px;background:#eee;border-radius:6px;overflow:hidden;margin:12px 0;}
+  #fill{height:100%;width:0%;background:#999;transition:width .1s linear;}
+  #level{font-size:22px;font-weight:bold;color:#555;}
+  .note{color:#777;font-size:12px;}
 </style>
 </head>
 <body>
 
-<h2>環境音チェック</h2>
-<p>マイクへのアクセスを許可し、3秒間の測定を行ってください。測定が終わると、自動的に元の画面に戻ります。</p>
+<p id="permStatus" class="note">マイクへのアクセスを確認しています…</p>
+<div id="bar"><div id="fill"></div></div>
+<div id="level">--</div>
 
-<button id="startBtn" onclick="start()">マイクへのアクセスを許可して測定開始</button>
-<p id="permStatus" class="note"></p>
-
-<div id="meterBox" style="display:none;">
-  <div id="bar"><div id="fill"></div></div>
-  <div id="level">-- </div>
-  <div id="result" style="display:none;"></div>
-  <button id="retryBtn" onclick="start()" style="display:none;">もう一度測定</button>
-  <button id="closeBtn" onclick="window.close()" style="display:none; background:#888;">この画面を閉じる</button>
-</div>
-
-<hr>
 <p class="note">
-これはWeb Audio APIによる相対音量（RMS）を仮に数値化したもので、専用の騒音計のような校正済みの絶対音圧レベル（真のdB SPL）ではありません。マイクの感度や自動ゲイン調整は端末ごとに異なるため、あくまで目安としてご利用ください。
+これはWeb Audio APIによる相対音量（RMS）を仮に数値化したもので、専用の騒音計のような校正済みの絶対音圧レベルではありません。研究者が後で参考にするための記録用の数値です。
 </p>
 
 <script>
   let audioCtx, analyser, dataArray, rafId, samples = [];
-  const THRESHOLD_DB = 55; // 仮の閾値。実測データが集まってから調整する
 
   function start() {
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('permStatus').innerText = 'マイクの許可を求めています…';
     samples = [];
-    // AGC・ノイズ抑制・エコーキャンセルは全てオフにする。これらは既定でオンになっており、
-    // ストリーム開始後の1〜2秒間、内部で自動的にゲインを調整し続けるため、その調整途中の値を
-    // 拾ってしまうと同じ部屋・同じ端末で測っても毎回大きく違う値になる（実際に確認済み）。
     navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
     })
       .then(stream => {
-        document.getElementById('permStatus').innerText = 'マイクへのアクセスが許可されました。準備中…';
-        document.getElementById('meterBox').style.display = 'block';
-        document.getElementById('result').style.display = 'none';
-        document.getElementById('retryBtn').style.display = 'none';
-        document.getElementById('closeBtn').style.display = 'none';
+        document.getElementById('permStatus').innerText = '測定中…';
 
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const source = audioCtx.createMediaStreamSource(stream);
@@ -65,8 +40,8 @@
         dataArray = new Uint8Array(analyser.fftSize);
 
         const startTime = performance.now();
-        const WARMUP_MS = 1000; // 最初の1秒は計測に含めない（ストリーム開始直後の不安定な区間を捨てる）
-        const MEASURE_MS = 3000; // 実際に平均に使う区間の長さ
+        const WARMUP_MS = 1000; // 最初の1秒はストリームが安定するまでの区間として捨てる
+        const MEASURE_MS = 3000;
         function tick() {
           analyser.getByteTimeDomainData(dataArray);
           let sumSq = 0;
@@ -75,20 +50,16 @@
             sumSq += v * v;
           }
           const rms = Math.sqrt(sumSq / dataArray.length);
-          const dbLike = rms > 0 ? Math.max(0, 20 * Math.log10(rms) + 100) : 0; // 0-100くらいに収まる仮換算
+          const dbLike = rms > 0 ? Math.max(0, 20 * Math.log10(rms) + 100) : 0;
           const elapsed = performance.now() - startTime;
 
-          document.getElementById('fill').style.width = Math.min(100, dbLike) + '%';
-          document.getElementById('fill').style.background = dbLike > THRESHOLD_DB ? '#e53935' : '#4caf50';
-
           if (elapsed < WARMUP_MS) {
-            document.getElementById('permStatus').innerText = 'マイクへのアクセスが許可されました。準備中…';
-            document.getElementById('level').innerText = '-- (準備中)';
+            document.getElementById('fill').style.width = Math.min(100, dbLike) + '%';
             rafId = requestAnimationFrame(tick);
           } else if (elapsed < WARMUP_MS + MEASURE_MS) {
-            document.getElementById('permStatus').innerText = '測定中…';
-            document.getElementById('level').innerText = dbLike.toFixed(1) + ' (相対値)';
             samples.push(dbLike);
+            document.getElementById('fill').style.width = Math.min(100, dbLike) + '%';
+            document.getElementById('level').innerText = dbLike.toFixed(1);
             rafId = requestAnimationFrame(tick);
           } else {
             finish(stream);
@@ -97,9 +68,10 @@
         tick();
       })
       .catch(err => {
-        document.getElementById('permStatus').innerText =
-          'マイクにアクセスできませんでした： ' + err.name + '（' + err.message + '）。元の画面に戻り、自己申告でお答えください。';
-        document.getElementById('startBtn').disabled = false;
+        // マイクが使えない・拒否された場合は、何もせず静かにあきらめる
+        // （このページ自体が補助的な記録用であり、参加者の進行には影響させないため）
+        document.getElementById('permStatus').innerText = '';
+        setTimeout(function () { window.close(); }, 300);
       });
   }
 
@@ -107,26 +79,15 @@
     cancelAnimationFrame(rafId);
     stream.getTracks().forEach(t => t.stop());
     audioCtx.close();
-
     const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
-    const quiet = avg <= THRESHOLD_DB;
-    const resEl = document.getElementById('result');
-    resEl.style.display = 'block';
-    resEl.className = quiet ? 'ok' : 'ng';
-    resEl.innerText = quiet
-      ? '判定: 静か（平均 ' + avg.toFixed(1) + '）。まもなく元の画面に戻ります。'
-      : '判定: やや騒がしい（平均 ' + avg.toFixed(1) + '）。まもなく元の画面に戻ります。';
-    document.getElementById('retryBtn').style.display = 'inline-block';
-    document.getElementById('closeBtn').style.display = 'inline-block';
 
-    // 呼び出し元（Index.html側）に測定結果を送る。呼び出し元のドメインは環境によって
-    // 変わり得るため targetOrigin は '*' としている（送る内容が騒音値の真偽・数値のみで、
-    // 個人情報を含まないため許容している）。
     if (window.opener) {
-      window.opener.postMessage({ type: 'envNoiseResult', quiet: quiet, value: avg }, '*');
-      setTimeout(function () { window.close(); }, 1200);
+      window.opener.postMessage({ type: 'envNoiseResult', quiet: null, value: avg }, '*');
     }
+    window.close();
   }
+
+  start();
 </script>
 
 </body>

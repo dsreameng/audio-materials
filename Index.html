@@ -56,7 +56,7 @@
   <h2>参加コードの入力</h2>
   <p>実験者から配布されたコードを入力してください。</p>
   <p>このコードは、「環境・ヘッドホンの確認」画面で「次へ（音声材料へ進む）」を押した時点で正式に使用済みとなります。それ以降にページを再読み込み・再接続しても、同じコードで参加を続けることはできませんのでご注意ください。</p>
-  <p class="note">なお、それより前の段階（説明動画・同意・事前アンケート・環境確認など）で途中終了した場合は、コードはまだ使用されていないため、後日あらためて同じコードでご参加いただけます。</p>
+  <p>なお、それより前の段階（説明動画・同意・事前アンケート・環境確認など）で途中終了した場合は、コードはまだ使用されていないため、後日あらためて同じコードでご参加いただけます。</p>
   <input type="text" id="codeInput" placeholder="例）ABCD-1234">
   <p class="error" id="codeError"></p>
   <button id="codeSubmitBtn" onclick="submitCode()">次へ</button>
@@ -103,11 +103,6 @@
   <fieldset>
     <legend>1. 周囲の環境の確認</legend>
     <p>周囲が静かで、この後20分ほど集中して聴取に取り組める環境にいらっしゃいますか。</p>
-
-    <button id="envCheckBtn" class="choice-btn" onclick="startEnvNoiseCheck()">マイクで環境音を測定する（推奨）</button>
-    <p class="note" id="envCheckStatus"></p>
-
-    <p class="note">マイクが使えない・測定がうまくいかない場合は、こちらでお答えください。</p>
     <button id="envYesBtn" class="choice-btn" onclick="setEnvResult(true)">はい、静かな環境です</button>
     <button id="envNoBtn" class="choice-btn" onclick="setEnvResult(false)">いいえ</button>
     <p id="envStatus"></p>
@@ -269,7 +264,7 @@
   const RESEARCHER_CONTACT_EMAIL = "dsreameng@gmail.com";
   // 環境音チェック用のポップアップページ（Apps Scriptのiframe内ではgetUserMediaがブロックされるため、
   // 別ホスト・別ウィンドウでマイク実測を行う。GitHub Pages等で公開したURLに置き換えること）。
-  const NOISE_CHECK_POPUP_URL = "REPLACE_WITH_NOISE_CHECK_POPUP_URL";
+  const NOISE_CHECK_POPUP_URL = "https://dsreameng.github.io/audio-materials/noise_check.html";
   document.getElementById('hpContactEmail').innerText = RESEARCHER_CONTACT_EMAIL;
   document.getElementById('networkIssueContactEmail').innerText = RESEARCHER_CONTACT_EMAIL;
   document.getElementById('withdrawnContactEmail').innerText = RESEARCHER_CONTACT_EMAIL;
@@ -676,17 +671,16 @@
   }
 
   // ---------- 画面4: 環境確認 ----------
-  // Apps Script配信ページ（exec URL）はGoogle側のiframeでラップされ、最内層フレームに
-  // マイク権限が許可されていないためgetUserMediaが使えない。そこでマイク実測は
-  // window.open()で別ホスト（Apps Scriptの外＝制限を受けない独立したトップレベルウィンドウ）
-  // に切り出し、測定結果をpostMessageで受け取る方式にした。ポップアップブロック等で
-  // 測定が使えない場合に備え、従来の自己申告ボタンもそのまま残してフォールバックにしている。
+  // 進行を判断するのは従来通り本人の自己申告（はい/いいえ）のみ。それに加えて、
+  // 自己申告ボタンを押した瞬間（＝ユーザー操作の直後なのでポップアップブロックされない）に、
+  // 裏でマイク実測を1回だけ試みてResponsesシートに数値だけ記録しておく。判定（静か／やや騒がしい）は
+  // 参加者には一切見せず、実測値の校正もしていないため、進行の可否には使わない。
+  // 実測は参加者の操作が増えないよう自動で行い、失敗しても自己申告の流れは止めない
+  // （マイク拒否・ポップアップブロックされても静かにあきらめるだけで、通常の進行に影響しない）。
   let envQuiet = null;
   let headphoneOk = null;
-  let envCheckMethod = null;   // 'mic' or 'self_report'（Responsesシートに記録、集計時の判別用）
-  let envMeasuredValue = null; // マイク実測時の相対値（校正済みの絶対dBではない点に注意。null=自己申告）
+  let envMeasuredValue = null; // マイク実測の相対値（後で研究者が自分の判断で参照する。null=未取得）
   let envCheckPopup = null;
-  let envCheckPollId = null;
 
   function selectChoice(selectedId, otherId) {
     document.getElementById(selectedId).classList.add('selected');
@@ -701,46 +695,26 @@
 
   function setEnvResult(quiet) {
     envQuiet = quiet;
-    // 手動の自己申告ボタンを直接押した場合は、マイク実測ではないことを明示する
-    // （startEnvNoiseCheckの結果を受けてこの関数が呼ばれた場合は、呼び出し側で先にenvCheckMethod='mic'を設定済み）
-    if (envCheckMethod !== 'mic') {
-      envCheckMethod = 'self_report';
-      envMeasuredValue = null;
-    }
     selectChoice(quiet ? 'envYesBtn' : 'envNoBtn', quiet ? 'envNoBtn' : 'envYesBtn');
     document.getElementById('envStatus').innerText = quiet ? '' : '恐れ入りますが、できるだけ静かな環境に移動してから、上のボタンで再度お答えください。';
     document.getElementById('envExitBox').classList.toggle('hidden', quiet);
     updateHpContinueBtn();
+    startEnvNoiseCheckSilently(); // 自己申告の結果とは無関係に、裏で1回だけ実測を試みる
   }
 
-  // マイクでの環境音実測を別ウィンドウで開始する
-  function startEnvNoiseCheck() {
-    const statusEl = document.getElementById('envCheckStatus');
-    envCheckPopup = window.open(NOISE_CHECK_POPUP_URL, 'envNoiseCheck', 'width=480,height=580');
-    if (!envCheckPopup) {
-      statusEl.innerText = 'ポップアップがブロックされました。ブラウザの設定でポップアップを許可するか、下の自己申告でお答えください。';
-      return;
-    }
-    statusEl.innerText = '別ウィンドウが開きます。マイクへのアクセスを許可し、測定を行ってください（完了すると自動的にこちらに反映されます）。';
-    clearInterval(envCheckPollId);
-    envCheckPollId = setInterval(function () {
-      if (envCheckPopup && envCheckPopup.closed && envMeasuredValue === null) {
-        clearInterval(envCheckPollId);
-        statusEl.innerText = 'ウィンドウが閉じられ、測定は完了しませんでした。よろしければ下の自己申告でお答えください。';
-      }
-    }, 1000);
+  // マイクでの環境音実測を裏で試みる（参加者には判定結果を見せない。UI上は見えなくてもよいが、
+  // ブラウザのマイク許可ダイアログ自体は表示される＝これは参加者の操作なので不可避）。
+  function startEnvNoiseCheckSilently() {
+    if (envCheckPopup) return; // 既に一度試みていれば再度開かない
+    envCheckPopup = window.open(NOISE_CHECK_POPUP_URL, 'envNoiseCheck', 'width=420,height=360');
+    // ポップアップがブロックされた場合は何も表示せず諦める（自己申告の流れに影響させない）
   }
 
-  // 環境音チェック用の別ウィンドウからの測定結果を受け取る
+  // 環境音チェック用の別ウィンドウからの測定結果を受け取る（数値だけ保持し、参加者には表示しない）
   window.addEventListener('message', function (e) {
     if (!e.data || e.data.type !== 'envNoiseResult') return;
-    clearInterval(envCheckPollId);
-    if (envCheckPopup && !envCheckPopup.closed) envCheckPopup.close();
-    envCheckMethod = 'mic';
     envMeasuredValue = e.data.value;
-    document.getElementById('envCheckStatus').innerText =
-      '測定結果: ' + (e.data.quiet ? '静か' : 'やや騒がしい') + '（相対値 ' + Number(e.data.value).toFixed(1) + '。校正済みの絶対的な騒音レベルではなく、目安の値です）';
-    setEnvResult(e.data.quiet);
+    if (envCheckPopup && !envCheckPopup.closed) envCheckPopup.close();
   });
 
   function setHeadphoneResult(heard) {
@@ -812,7 +786,7 @@
             document.getElementById('hpError').innerText = '通信エラーが発生しました。' + err;
             document.getElementById('hpContinueBtn').disabled = false;
           })
-          .saveEnvCheck(sessionId, envQuiet, headphoneOk, envCheckMethod, envMeasuredValue);
+          .saveEnvCheck(sessionId, envQuiet, headphoneOk, (envMeasuredValue !== null ? 'mic_background' : 'self_report_only'), envMeasuredValue);
       })
       .withFailureHandler(function (err) {
         document.getElementById('hpError').innerText = '通信エラーが発生しました。' + err;
